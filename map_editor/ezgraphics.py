@@ -41,9 +41,12 @@ PYGAME_SDL_WEIGHT = 0  # width of the graphic window
 PYGAME_SDL_HEIGHT = 0  # height of the graphic window
 PYGAME_SDL_FONT = "verdana"  # default font
 PYGAME_SDL_DISPLAY = 1  # default display constant
+
 PYGAME_SDL_WINDOW = pygame.display.set_mode((10, 10))
+
 SWATCH = 0
 
+NAUGHT = -42
 
 # endregion
 
@@ -528,7 +531,7 @@ def draw_fill_triangle(P: Point, Q: Point, R: Point, C: Color):
         pygame.display.flip()
 
 
-def draw_rectangle(P: Point, w: float, h: float, C: Color):
+def draw_rectangle(P: Point, w: float, h: float, C: pygame.Color, S: pygame.Surface = PYGAME_SDL_WINDOW):
     """
     Draws a rectangle of top-left point P, width w, height h and color C
 
@@ -536,13 +539,15 @@ def draw_rectangle(P: Point, w: float, h: float, C: Color):
     :param w: width
     :param h: height
     :param C: color
+    :param S: surface to draw on
     ///////////////
     :type P: Point
     :type w: float
     :type h: float
-    :type C: Color
+    :type C: pygame.Color
+    :type S: pygame.Surface
     """
-    pygame.draw.rect(PYGAME_SDL_WINDOW, C, (int(P.x), int(P.y), int(w), int(h)), 1)
+    pygame.draw.rect(S, C, (int(P.x), int(P.y), int(w), int(h)), 1)
     if PYGAME_SDL_DISPLAY == 1:
         pygame.display.flip()
 
@@ -1043,6 +1048,20 @@ def get_busy_music():
 # --------------------------------------------------
 
 
+def get_mouse_down():
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            return pygame.quit()
+        elif event.type == MOUSEBUTTONDOWN:
+            if event.button == 1:
+                return [BUTTON_LEFT, Point(event.pos[0], event.pos[1])]
+            elif event.button == 2:
+                return [BUTTON_MIDDLE, Point(event.pos[0], event.pos[1])]
+            elif event.button == 3:
+                return [BUTTON_RIGHT, Point(event.pos[0], event.pos[1])]
+    return None
+
+
 def wait_click():
     """
     Waits for a left click and returns the coordinates of said click
@@ -1115,6 +1134,14 @@ def get_mouse():
 # --------------------------------------------------
 # PART 9 : KEYBOARD HANDLING
 # --------------------------------------------------
+
+def get_key_down():
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            return pygame.quit()
+        elif event.type == KEYDOWN:
+            return event.key
+    return None
 
 
 def wait_key():

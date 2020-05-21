@@ -14,8 +14,11 @@ def main(w=30, h=15, scalingFactor=32):
 
     draw_area = Button(Point(0, 0), "", W, H, black, white)
 
+    ghost = pygame.Surface((32, 32))
+
     # Load all the color buttons from the designated .blf (Button-Listing File) file
     blockButtons: List[Button] = load_buttons_from_file("buttons.blf", W + 32, 30)
+    lenBB = len(blockButtons)
 
     # Colors taken from the front-ground colors of the blockButtons list
     colors: List[Color] = [blockButtons[i].color_fg for i in range(len(blockButtons))]
@@ -45,77 +48,155 @@ def main(w=30, h=15, scalingFactor=32):
     # Transparency toggle and layer indicator button
     alphaButton = Button(Point(W + 48, (H + menuSize.y) // 2 + 32), str(currentLayer), 32, 32, soft_black, white, True)
 
+    checkSaveWatch = False
+    postEventRefresh = False
     while True:
         # region BasicWindow
         # ------------------------------------------------------------------------
-        refresh_screen(w, h, W, H, scalingFactor, menuSize, layers, currentLayer, transparent, blockButtons,
-                       currentColor,
-                       layer_upButton, layer_downButton, alphaButton, quitButton, saveButton, loadButton)
+
+        # Draw the screen again if it needs to be refreshed
+        if postEventRefresh:
+            checkSaveWatch = refresh_screen(w, h, W, H, scalingFactor, menuSize, layers, currentLayer, transparent,
+                                            blockButtons, currentColor, layer_upButton, layer_downButton, alphaButton,
+                                            quitButton, saveButton, loadButton, checkSaveWatch)
+            postEventRefresh = False
+
+        # Draw ghost
+        if draw_area.inside(get_mouse()):
+            draw_ghost(scalingFactor, colors[currentColor], blockButtons)
+            postEventRefresh = True
 
         display_all()
         # ------------------------------------------------------------------------
         # endregion
 
-        clickData: (str, Point) = wait_click_specific()
+        keyData: int = get_key_down()
+        mousePos = pygame.mouse.get_pos()
+        mouseData: (List[bool], Point) = [pygame.mouse.get_pressed(), Point(mousePos[0], mousePos[1])]
+        mouseDown = get_mouse_down()
+        if (mouseDown is not None) and (mouseDown[0] is not None):
+            if not mouseData[0][0]:
+                mouseData[0][0] = mouseData[0][0] or mouseDown[0] == BUTTON_LEFT
+            if not mouseData[0][1]:
+                mouseData[0][1] = mouseData[0][1] or mouseDown[0] == BUTTON_MIDDLE
+            if not mouseData[0][2]:
+                mouseData[0][2] = mouseData[0][2] or mouseDown[0] == BUTTON_RIGHT
 
-        if quitButton.inside(clickData[1]):
-            break
-        elif draw_area.inside(clickData[1]):
-            # Left click
-            if clickData[0] == "L":
-                newPoint = True
-                for i in range(len(layers[currentLayer])):
-                    if layers[currentLayer][i][0] == Point(clickData[1].x // scalingFactor,
-                                                           clickData[1].y // scalingFactor):
-                        newPoint = False
-                if newPoint:
-                    layers[currentLayer].append((Point(clickData[1].x // scalingFactor,
-                                                       clickData[1].y // scalingFactor),
+        if True in mouseData[0]:
+            # QUIT
+            if quitButton.inside(mouseData[1]):
+                break
+            # Draw area
+            elif draw_area.inside(mouseData[1]):
+                # Left click
+                if mouseData[0][0]:
+                    newPoint = True
+                    for i in range(len(layers[currentLayer])):
+                        if layers[currentLayer][i][0] == Point(mouseData[1].x // scalingFactor,
+                                                               mouseData[1].y // scalingFactor):
+                            del layers[currentLayer][i]
+                            break
+                    layers[currentLayer].append((Point(mouseData[1].x // scalingFactor,
+                                                       mouseData[1].y // scalingFactor),
                                                  colors[currentColor]))
-            # Right click
-            elif clickData[0] == "R":
-                for i in range(len(layers[currentLayer])):
-                    if layers[currentLayer][i][0] == Point(clickData[1].x // scalingFactor,
-                                                           clickData[1].y // scalingFactor):
-                        del layers[currentLayer][i]
-                        break
-            # refresh_drawing_area(layers[currentLayer], blockButtons, w, h, W, H, scalingFactor)
-        elif layer_upButton.inside(clickData[1]):
-            if currentLayer == len(layers) - 1:
-                layers.append([])
-            currentLayer += 1
-            alphaButton.text = str(currentLayer)
-        elif layer_downButton.inside(clickData[1]):
-            if currentLayer > 0:
-                currentLayer -= 1
-            alphaButton.text = str(currentLayer)
-        elif alphaButton.inside(clickData[1]):
-            transparent = not transparent
-            if transparent:
-                alphaButton.color_bg = pygame.Color("#00BCFF")
+                # Right click
+                if mouseData[0][2]:
+                    for i in range(len(layers[currentLayer])):
+                        if layers[currentLayer][i][0] == Point(mouseData[1].x // scalingFactor,
+                                                               mouseData[1].y // scalingFactor):
+                            del layers[currentLayer][i]
+                            break
+
+            elif layer_upButton.inside(mouseData[1]):
+                currentLayer = increment_layer(layers, currentLayer)
+            elif layer_downButton.inside(mouseData[1]):
+                currentLayer = decrement_layer(currentLayer)
+            elif alphaButton.inside(mouseData[1]):
+                transparent = toggle_transparency(alphaButton, transparent)
+            elif saveButton.inside(mouseData[1]):
+                save_map(layers, -1 if transparent else currentLayer, blockButtons, w, h, W, H)
+                swatch_start()
+                checkSaveWatch = True
+            # elif loadButton.inside(clickData[1]):
+            #     layers = load_map()
+            #     currentLayer = 0
             else:
-                alphaButton.color_bg = white
-        elif saveButton.inside(clickData[1]):
-            save_map(layers, -1 if transparent else currentLayer, blockButtons, w, h, W, H)
-        # elif loadButton.inside(clickData[1]):
-        #     layers = load_map()
-        #     currentLayer = 0
-        else:
-            for i in range(len(blockButtons)):
-                if blockButtons[i].inside(clickData[1]):
-                    currentColor = i
-                    break
+                for i in range(len(blockButtons)):
+                    if blockButtons[i].inside(mouseData[1]):
+                        currentColor = i
+                        break
+        if keyData is not None:
+            if keyData in [K_z, K_w, K_q, K_a, K_s, K_d]:
+                if keyData in [K_z, K_w]:
+                    if currentColor >= 2:
+                        currentColor -= 2
+                    else:
+                        currentColor = lenBB - (currentColor if currentColor == 1 else 2)
+                elif keyData in [K_q, K_a]:
+                    if currentColor % 2 == 0 and currentColor < lenBB - 1:
+                        currentColor += 1
+                    elif currentColor % 2 == 1 and currentColor > 0:
+                        currentColor -= 1
+                elif keyData == K_s:
+                    if currentColor < lenBB - 2:
+                        currentColor += 2
+                    else:
+                        currentColor %= 2
+                else:
+                    if currentColor % 2 == 1 and currentColor > 0:
+                        currentColor -= 1
+                    elif currentColor % 2 == 0 and currentColor < lenBB - 1:
+                        currentColor += 1
+            elif keyData in [K_LSHIFT, K_LCTRL, K_LALT, K_t]:
+                if keyData == K_LSHIFT:
+                    currentLayer = increment_layer(layers, currentLayer)
+                elif keyData == K_LCTRL:
+                    currentLayer = decrement_layer(currentLayer)
+                elif keyData == K_LALT:
+                    currentLayer = 0
+                else:
+                    transparent = toggle_transparency(alphaButton, transparent)
+
+
+# region Layer handling
+
+
+def increment_layer(layers, currentLayer):
+    if currentLayer == len(layers) - 1:
+        layers.append([])
+    currentLayer += 1
+    return currentLayer
+
+
+def decrement_layer(currentLayer):
+    if currentLayer > 0:
+        currentLayer -= 1
+    return currentLayer
+
+
+def toggle_transparency(alphaButton, transparent):
+    transparent = not transparent
+    if transparent:
+        alphaButton.color_bg = pygame.Color("#00BCFF")
+    else:
+        alphaButton.color_bg = white
+    return transparent
+
+
+# endregion
+
+# region Drawing
 
 
 def refresh_screen(w, h, W, H, scalingFactor, menuSize, layers, currentLayer, transparent, blockButtons, currentColor,
-                   layer_upButton, layer_downButton, alphaButton, quitButton, saveButton, loadButton):
+                   layer_upButton, layer_downButton, alphaButton, quitButton, saveButton, loadButton, checkSaveWatch):
     refresh_drawing_area(layers, currentLayer, transparent, blockButtons, w, h, W, H, scalingFactor)
-    refresh_menus(W, H, menuSize, blockButtons, currentColor, layer_upButton, layer_downButton, alphaButton, quitButton,
-                  saveButton, loadButton)
+    return refresh_menus(W, H, menuSize, blockButtons, currentColor, currentLayer, layer_upButton, layer_downButton,
+                         alphaButton, quitButton, saveButton, loadButton, checkSaveWatch)
 
 
-def refresh_menus(W, H, menuSize, blockButtons, currentColor, layer_upButton, layer_downButton, alphaButton, quitButton,
-                  saveButton, loadButton):
+def refresh_menus(W, H, menuSize, blockButtons, currentColor, currentLayer, layer_upButton, layer_downButton,
+                  alphaButton, quitButton, saveButton, loadButton, checkSaveWatch):
     # region Side
     # Block picker area
     draw_fill_rectangle(Point(W, 0), menuSize.x, H + menuSize.y, gray)
@@ -137,7 +218,7 @@ def refresh_menus(W, H, menuSize, blockButtons, currentColor, layer_upButton, la
 
     # Software name and version
     display_text("Golden Wind Map Editor", 52, Point(5, H + 5), white, True)
-    display_text("v0.1", 16, Point(15, H + text_height("Golden Wind Map Editor", 52, True)), soft_black, True)
+    display_text("v0.2", 16, Point(15, H + text_height("Golden Wind Map Editor", 52, True)), soft_black, True)
 
     # Layer handling
     arrowSize = 8
@@ -147,22 +228,33 @@ def refresh_menus(W, H, menuSize, blockButtons, currentColor, layer_upButton, la
                        Point(layer_upButton.P.x + layer_upButton.w - arrowSize,
                              layer_upButton.P.y + layer_upButton.h - arrowSize),
                        layer_upButton.color_bg)
+    alphaButton.text = str(currentLayer)
     alphaButton.draw(True, True)
     layer_downButton.draw(True, False)
-    draw_fill_triangle(Point(layer_downButton.P.x + layer_downButton.w // 2, layer_downButton.P.y + layer_downButton.h - arrowSize),
-                       Point(layer_downButton.P.x + arrowSize, layer_downButton.P.y + arrowSize),
-                       Point(layer_downButton.P.x + layer_downButton.w - arrowSize,
-                             layer_downButton.P.y + arrowSize),
-                       layer_downButton.color_bg)
+    draw_fill_triangle(
+        Point(layer_downButton.P.x + layer_downButton.w // 2, layer_downButton.P.y + layer_downButton.h - arrowSize),
+        Point(layer_downButton.P.x + arrowSize, layer_downButton.P.y + arrowSize),
+        Point(layer_downButton.P.x + layer_downButton.w - arrowSize,
+              layer_downButton.P.y + arrowSize),
+        layer_downButton.color_bg)
 
     # SAVE button
     saveButton.draw(False, True)
+    if checkSaveWatch:
+        if swatch_val() < 1000:
+            display_text_center("SAVED!", 12,
+                                Point(saveButton.P.x + saveButton.w // 2, saveButton.P.y + saveButton.h + 8),
+                                saveButton.color_fg)
+        else:
+            checkSaveWatch = False
     # LOAD button
     loadButton.draw(False, True)
     display_text_center("WIP", 12, Point(loadButton.P.x + loadButton.w // 2, loadButton.P.y + loadButton.h + 8), black)
     # QUIT button
     quitButton.draw(False, True)
     # endregion
+
+    return checkSaveWatch
 
 
 def refresh_drawing_area(layers: List[List[Tuple[Point, Color]]], currentLayer: int, transparent: bool,
@@ -229,6 +321,25 @@ def draw_layer(layer: List[Tuple[Point, Color]], buttons: List[Button], transpar
                 draw_fill_rectangle(pixel[0], 1, 1, pygame.Color(pixel[1].r, pixel[1].g, pixel[1].b, transparency), S)
 
 
+def draw_ghost(scalingFactor, col, buttons):
+    mousePos = get_mouse()
+    processedMousePos = Point((mousePos.x // scalingFactor) * scalingFactor,
+                              (mousePos.y // scalingFactor) * scalingFactor)
+    load_image(get_path_from_color(col, buttons), processedMousePos)
+
+    if col != red:
+        draw_rectangle(processedMousePos, scalingFactor, scalingFactor, red)
+    else:
+        draw_rectangle(processedMousePos, scalingFactor, scalingFactor, yellow)
+
+    if PYGAME_SDL_DISPLAY == 1:
+        pygame.display.flip()
+
+
+# endregion
+
+# region Saving and loading
+
 def get_path_from_color(col, buttons):
     for i in range(len(buttons)):
         if col == buttons[i].color_fg:
@@ -254,7 +365,7 @@ def save_map(layers, currentLayer, buttons, w, h, W, H):
         for i in range(currentLayer + 1):
             if layers[i]:
                 draw_layer(layers[i], buttons, 255, 1, S)
-        pygame.image.save(S, "IO\\layers_squashed.png")
+                pygame.image.save(S, "IO\\layers_{0}.png".format(i))
 
 
 # TODO finish load_map() for v0.2
@@ -273,5 +384,6 @@ def save_map(layers, currentLayer, buttons, w, h, W, H):
 #         n += 1
 #     return layers if n > 0 else [[]]
 
+# endregion
 
 main()
