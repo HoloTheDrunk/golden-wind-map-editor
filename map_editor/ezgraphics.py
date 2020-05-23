@@ -1042,6 +1042,23 @@ def get_busy_music():
 # endregion
 # endregion
 
+# region General Input Handling
+def get_input_down():
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            return pygame.quit()
+        elif event.type == MOUSEBUTTONDOWN:
+            if event.button == 1:
+                return None, [BUTTON_LEFT, Point(event.pos[0], event.pos[1])]
+            elif event.button == 2:
+                return None, [BUTTON_MIDDLE, Point(event.pos[0], event.pos[1])]
+            elif event.button == 3:
+                return None, [BUTTON_RIGHT, Point(event.pos[0], event.pos[1])]
+        elif event.type == KEYDOWN:
+            return event.key, None
+    return None
+# endregion
+
 # region Mouse Handling
 # --------------------------------------------------
 # PART 8 : MOUSE HANDLING
@@ -1098,11 +1115,11 @@ def wait_click_specific():
                 return pygame.quit()
             if event.type == MOUSEBUTTONDOWN:
                 if event.button == 1:
-                    return ["L", Point(event.pos[0], event.pos[1])]
+                    return [BUTTON_LEFT, Point(event.pos[0], event.pos[1])]
                 if event.button == 2:
-                    return ["M", Point(event.pos[0], event.pos[1])]
+                    return [BUTTON_MIDDLE, Point(event.pos[0], event.pos[1])]
                 if event.button == 3:
-                    return ["R", Point(event.pos[0], event.pos[1])]
+                    return [BUTTON_RIGHT, Point(event.pos[0], event.pos[1])]
 
 
 def cursor_visible(visible: bool):
@@ -1139,9 +1156,9 @@ def get_key_down():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             return pygame.quit()
-        elif event.type == KEYDOWN:
+        if event.type == KEYDOWN:
             return event.key
-    return None
+    # return None
 
 
 def wait_key():

@@ -54,8 +54,8 @@ def load_buttons_from_file(path: str, xOffset: int = 0, yOffset: int = 0, size: 
     return buttons
 
 
-def save_scene_screenshot(n):
-    pygame.image.save(PYGAME_SDL_WINDOW, "layers_squashed.png")
+def save_scene_screenshot():
+    pygame.image.save(PYGAME_SDL_WINDOW, "screenshot.png")
 
 
 def draw_coords(windowWidth: int, windowHeight: int, frequencyX: int, frequencyY: int, col: Color = gray,
